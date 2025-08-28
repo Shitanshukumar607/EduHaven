@@ -14,20 +14,30 @@ export const friendList = async (req, res) => {
 
 export const userList = async (req, res) => {
   try {
+    const { page = 1, limit = 20 } = req.query;
     const currentUser = await User.findById(req.user._id);
 
-    const users = await User.find({
+    const query = {
       $and: [
         { _id: { $ne: currentUser._id } },
         { _id: { $nin: currentUser.friends || [] } },
         { _id: { $nin: currentUser.sentRequests || [] } },
         { _id: { $nin: currentUser.friendRequests || [] } },
       ],
-    })
-      .sort({ createdAt: -1 }) //  newest users first
-      .select("FirstName LastName ProfilePicture Bio OtherDetails");
+    };
 
-    res.json(users);
+    const users = await User.find(query)
+      .sort({ createdAt: -1 })
+      .select("FirstName LastName ProfilePicture Bio OtherDetails")
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    const totalCount = await User.countDocuments(query);
+
+    res.json({
+      users,
+      hasMore: page * limit < totalCount,
+    });
   } catch (err) {
     console.error("Error in userList:", err);
     res.status(500).json({ error: err.message });

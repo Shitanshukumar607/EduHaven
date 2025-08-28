@@ -9,12 +9,26 @@ export default function SuggestedFriends() {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  const fetchSuggestions = async () => {
+  const fetchSuggestions = async (pageNum = 1) => {
+    if (!hasMore && pageNum !== 1) return;
     setLoading(true);
     try {
-      const res = await axiosInstance.get("/friends/friend-suggestions");
-      setUsers(res.data || []);
+      const res = await axiosInstance.get(
+        `/friends/friend-suggestions?page=${pageNum}&limit=20`
+      );
+      const { users: fetched, hasMore: more } = res.data;
+
+      if (pageNum === 1) {
+        setUsers(fetched);
+        setFilteredUsers(fetched);
+      } else {
+        setUsers((prev) => [...prev, ...fetched]);
+        setFilteredUsers((prev) => [...prev, ...fetched]);
+      }
+      setHasMore(more);
     } catch (err) {
       console.error("Fetch suggestions error:", err);
       toast.error("Failed to load suggestions");
@@ -74,12 +88,32 @@ export default function SuggestedFriends() {
   };
   
   useEffect(() => {
-    fetchSuggestions();
+    fetchSuggestions(1);
   }, []);
   
   useEffect(() => {
     setFilteredUsers(users);
   }, [users]);
+
+  const handleScroll = useCallback(() => {
+    if (
+      window.innerHeight + document.documentElement.scrollTop + 100 >=
+      document.documentElement.scrollHeight
+    ) {
+      if (!loading && hasMore) {
+        setPage((prev) => {
+          const next = prev + 1;
+          fetchSuggestions(next);
+          return next;
+        });
+      }
+    }
+  }, [loading, hasMore]);
+
+  useEffect(() => {
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
 
   if (loading)
     return <div className="text-center text-gray-500">Loading...</div>;
