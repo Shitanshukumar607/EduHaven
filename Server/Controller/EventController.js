@@ -1,5 +1,4 @@
 import Event from "../Model/EventModel.js";
-import User from "../Model/UserModel.js";
 
 export const getAllEvents = async (req, res) => {
     try {
@@ -129,59 +128,4 @@ export const deleteEvent = async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
-};
-
-export const getUserStats = async (req, res) => {
-  try {
-    const userId = req.query.id || req.user?._id;
-    if (!userId) {
-      return res.status(400).json({ error: "User ID is required" });
-    }
-
-    const user = await User.findById(userId).select(
-      "streaks rank level badges"
-    );
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Count total users for rank context
-    const totalUsersCount = await User.countDocuments();
-
-    let newBadges = [];
-    try {
-      console.log("Checking for new badges...");
-      newBadges = await checkAllBadges(userId);
-
-      if (newBadges.length > 0) {
-        // Refresh badges if new ones were awarded
-        const updatedUser = await User.findById(userId).select("badges");
-        user.badges = updatedUser.badges;
-      }
-    } catch (badgeError) {
-      console.error("Error checking badges:", badgeError);
-    }
-
-    return res.status(200).json({
-      rank: user.rank || 0,
-      totalUsers: totalUsersCount,
-      currentStreak: user.streaks?.current || 0,
-      maxStreak: user.streaks?.max || 0,
-      level: user.level || {
-        name: "Beginner",
-        progress: 0,
-        hoursToNextLevel: 2,
-      },
-
-      badges: user.badges || [],
-      newBadges,
-      availableBadges: Object.values(BADGES),
-    });
-  } catch (error) {
-    console.error("Error fetching user stats:", error);
-    return res.status(500).json({
-      error: "Failed to fetch user stats",
-      details: error.message,
-    });
-  }
 };
